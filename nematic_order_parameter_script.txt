@@ -1,0 +1,56 @@
+#adapted from https://freud.readthedocs.io/en/latest/gettingstarted/examples/module_intros/order.Nematic.html
+import freud
+import matplotlib.pyplot as plt
+import numpy as np
+import rowan  # for quaternion math, see rowan.readthedocs.io
+from mpl_toolkits.mplot3d import Axes3D
+import pandas as pd
+
+#make points array of the xyz coords of all particles (this is read in from a .csv file)
+data = pd.read_csv('xyz_quat_seed_65432_conc_0.001_40-41.csv', delimiter='\t')
+
+data_type2 = data[data.type != 2] #df only w/ rows whose "type" column value =1 i.e. 5CB
+
+df_points = pd.DataFrame(data_type2, columns = ['x', 'y', 'z',]); #making the atom coords locations dataframe
+df_identity_quats = pd.DataFrame(data_type2, columns = ['quati', 'quatj', 'quatk', 'quatw']); #making the quaternion dataframe
+
+
+#turning coords df into nparrays
+points = df_points.to_numpy()
+#turning quatern df into nparrays
+ar_quats = df_identity_quats.to_numpy()
+
+#DNR
+N=ar_quats.shape[0]; #should be same length as the #rows in ar_quats
+interpolate_amount = 0 #set this to zero for reproducibility 
+#(also 0 is the minimum value of variance in orientation )
+identity_quats = ar_quats
+orientations = rowan.interpolate.slerp(
+    identity_quats, rowan.random.rand(N), interpolate_amount
+)
+
+arrowheads = rowan.rotate(orientations, [1, 0, 0])
+fig = plt.figure()
+ax = fig.add_subplot(111, projection="3d")
+ax.quiver3D(
+    points[:, 0], #"points" are the xyz locations of the atoms outputted
+    points[:, 1], 
+    points[:, 2],
+    arrowheads[:, 0], #these belong to the quaternions
+    arrowheads[:, 1],
+    arrowheads[:, 2], length=10
+)
+ax.set_title("Orientations", fontsize=16)
+ax.set_xlabel('X ($\AA$)')
+ax.set_ylabel('Y ($\AA$)')
+ax.set_zlabel('Z ($\AA$)')
+fig.set_figheight(10)
+fig.set_figwidth(10)
+
+
+axes = [[1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 0], [1, 0, 1], [0, 1, 1], [1, 1, 1]]
+for ax in axes:
+    nop = freud.order.Nematic(ax)
+    nop.compute(orientations)
+    print(f"For axis {ax}, the value of the order parameter is {nop.order:0.3f}.")
+   
